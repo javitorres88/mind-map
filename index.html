@@ -70,6 +70,13 @@
     position:absolute;top:-8px;right:-8px;width:16px;height:16px;border-radius:50%;
     background:var(--ink);color:#fff;font-size:11px;line-height:16px;text-align:center;font-weight:700;
   }
+  .nnode .info{display:inline-block;margin-left:3px;color:var(--muted);font-size:11px}
+  .note-pop{
+    position:fixed;z-index:1000;max-width:280px;padding:10px 12px;
+    background:#fff;border:1px solid #d0d0d0;border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,.18);font-size:12.5px;line-height:1.5;color:var(--ink);
+  }
+  .note-pop::before{content:'Definition';display:block;font-weight:700;font-size:10px;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.6px}
   footer{
     padding:16px 20px 24px;border-top:1px solid #e0e0e0;background-color:var(--paper);
   }
@@ -225,7 +232,7 @@ const DATA = {
         {
           id:'ai-data', label:'Data', theme:'ai',
           children:[
-            {id:'ai-dt1', label:'Electronic health records (EHR)'},
+            {id:'ai-dt1', label:'Electronic health records (EHR)', note:"A digitized, real-time record of a patient's health — demographics, medical history, diagnoses, medications, lab results and imaging — shared securely across care settings to coordinate care and power AI analysis."},
             {id:'ai-dt2', label:'Wearable & sensor data'},
             {id:'ai-dt3', label:'Genomics & omics'},
             {id:'ai-dt4', label:'Clinical trials & research'},
@@ -367,11 +374,12 @@ function render(){
     const hasKids=!n.leaf;
     const label=(n.label||'').replace(/\n/g,'<br>');
     el.innerHTML = (n.theme?'<span class="dot"></span>':'') + label +
+      (n.note?'<span class="info">ⓘ</span>':'') +
       (hasKids?'<span class="hint">'+(collapsed.has(n.id)?'＋':'−')+' '+n.children.length+'</span>':'');
     if(n===DATA){
       el.classList.add('root');
     }
-    el.onclick=()=>{ toggle(n); };
+    el.onclick=(ev)=>{ ev.stopPropagation(); showNote(n, el); toggle(n); };
     canvas.appendChild(el);
   });
 
@@ -391,6 +399,30 @@ function toggle(n){
 }
 function expandAll(){ collapsed.clear(); render(); }
 function collapseAll(){ all.forEach(n=>{ if(n.children&&n.children.length) collapsed.add(n.id); }); collapsed.delete('root'); render(); }
+
+// ---- note popover (definitions) ----
+let noteEl = null;
+function showNote(node, anchorEl){
+  hideNote();
+  if(!node.note) return;
+  const r = anchorEl.getBoundingClientRect();
+  noteEl = document.createElement('div');
+  noteEl.className = 'note-pop';
+  noteEl.textContent = node.note;
+  document.body.appendChild(noteEl);
+  const w = noteEl.offsetWidth, h = noteEl.offsetHeight;
+  let left = r.left + r.width/2 - w/2;
+  let top = r.bottom + 10;
+  if(top + h > window.innerHeight) top = r.top - h - 10;
+  if(left < 8) left = 8;
+  if(left + w > window.innerWidth - 8) left = window.innerWidth - w - 8;
+  noteEl.style.left = left+'px';
+  noteEl.style.top = top+'px';
+}
+function hideNote(){ if(noteEl){ noteEl.remove(); noteEl = null; } }
+document.addEventListener('click', hideNote);
+document.getElementById('wrap').addEventListener('scroll', hideNote);
+window.addEventListener('scroll', hideNote);
 
 window.addEventListener('resize', ()=>{
   clearTimeout(window._rz);
