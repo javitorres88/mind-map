@@ -424,11 +424,17 @@ document.addEventListener('click', hideNote);
 document.getElementById('wrap').addEventListener('scroll', hideNote);
 window.addEventListener('scroll', hideNote);
 
+// ---- initial state: don't start fully expanded ----
+function initCollapse(){
+  all.forEach(n=>{ if((n.children||[]).length && (n.level||0) >= 2) collapsed.add(n.id); });
+}
+
 window.addEventListener('resize', ()=>{
   clearTimeout(window._rz);
   window._rz = setTimeout(()=>{ computeLayout(); render(); }, 150);
 });
 computeLayout();
+initCollapse();
 render();
 </script>
 </body>
