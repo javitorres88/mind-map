@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mind Map — Chronic Conditions × AI</title>
+<style>
+  :root{
+    --root:#1e293b;
+    --cc:#b08d57;   /* Chronic Conditions accent (light brown) */
+    --cc-tint:#f6efe4;
+    --ai:#f59e0b;   /* AI accent (light orange) */
+    --ai-tint:#fff4e0;
+    --ink:#0f172a;
+    --muted:#64748b;
+    --line:#94a3b8;
+    --paper:#efefef;   /* light grey notebook paper */
+    --panel:#f7f7f7;
+    --border:#cfcfcf;
+    --rule:#d8d8d8;    /* ruled-line grey */
+    --margin:#f0c2c2;  /* red margin line */
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background-color:var(--paper);color:var(--ink)}
+  header{
+    position:sticky;top:0;z-index:50;background-color:var(--paper);border-bottom:1px solid #e0e0e0;
+    padding:10px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  }
+  header h1{font-size:18px;margin:0;font-weight:700}
+  header .sub{font-size:13px;color:var(--muted)}
+  .controls{margin-left:auto;display:flex;gap:8px}
+  .controls button{
+    border:1px solid var(--border);background:var(--panel);border-radius:8px;padding:6px 12px;
+    font-size:13px;cursor:pointer;color:var(--ink);
+  }
+  .controls button:hover{background:#eaeaea}
+  .legend{display:flex;gap:14px;align-items:center;font-size:12px;color:var(--muted)}
+  .legend .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:5px}
+  .wrap{
+    width:100%;height:calc(100vh - 130px);overflow:auto;position:relative;
+    background-color:var(--paper);
+    background-image:
+      linear-gradient(90deg, var(--margin) 2px, transparent 2px),
+      linear-gradient(var(--rule) 1px, transparent 1px);
+    background-size: 64px 100%, 100% 30px;
+    background-position: 0 0, 46px 0;
+    background-repeat: no-repeat, repeat;
+  }
+  #canvas{position:relative;margin:0 auto}
+  svg.lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
+  .nnode{
+    position:absolute;transform:translate(-50%,-50%);
+    padding:8px 12px;border-radius:12px;text-align:center;
+    box-shadow:0 2px 6px rgba(15,23,42,.12);cursor:pointer;
+    font-size:13px;line-height:1.3;z-index:10;user-select:none;
+    border:2px solid var(--border);background:#fff;color:var(--ink);
+  }
+  .nnode .dot{display:block;margin:0 auto 4px;width:10px;height:10px;border-radius:50%}
+  .nnode .hint{font-size:10px;color:var(--muted);margin-top:3px}
+  .nnode.root{background:linear-gradient(135deg,#b08d57,#f59e0b);color:#fff;border-color:rgba(255,255,255,.6);padding:14px 20px;border-radius:18px;font-size:16px;font-weight:700;box-shadow:0 6px 18px rgba(30,41,59,.28)}
+  .nnode.root .hint{color:#e2e8f0}
+  .nnode.cc{border-color:var(--cc);background:var(--cc-tint)}
+  .nnode.cc .dot{background:var(--cc)}
+  .nnode.ai{border-color:var(--ai);background:var(--ai-tint)}
+  .nnode.ai .dot{background:var(--ai)}
+  .nnode.leaf{border-color:#d9d9d9;background:#fff}
+  .nnode.leaf:hover{border-color:var(--line)}
+  .nnode .plus{
+    position:absolute;top:-8px;right:-8px;width:16px;height:16px;border-radius:50%;
+    background:var(--ink);color:#fff;font-size:11px;line-height:16px;text-align:center;font-weight:700;
+  }
+  footer{
+    padding:16px 20px 24px;border-top:1px solid #e0e0e0;background-color:var(--paper);
+  }
+  footer h2{font-size:14px;margin:0 0 8px;color:var(--ink)}
+  footer ul{margin:0;padding-left:20px;font-size:13px;color:#334155;line-height:1.7;columns:2;column-gap:40px}
+  footer ul li{break-inside:avoid}
+  @media (max-width:640px){ footer ul{columns:1} .legend{display:none} }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🧠 Mind Map</h1>
+    <div class="sub">Two main themes: Chronic Conditions · AI — click nodes to expand / collapse</div>
+  </div>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--cc)"></span>Chronic Conditions</span>
+    <span><span class="dot" style="background:var(--ai)"></span>Artificial Intelligence</span>
+  </div>
+  <div class="controls">
+    <button onclick="expandAll()">Expand all</button>
+    <button onclick="collapseAll()">Collapse all</button>
+  </div>
+</header>
+
+<div class="wrap" id="wrap">
+  <div id="canvas"></div>
+</div>
+
+<footer>
+  <h2>✚ Where the two themes meet — AI applied to chronic conditions</h2>
+  <ul>
+    <li>AI-assisted early detection &amp; diagnosis of chronic disease</li>
+    <li>Predictive risk stratification from EHR &amp; wearable data</li>
+    <li>Personalized treatment &amp; care plans</li>
+    <li>Remote patient monitoring &amp; anomaly alerts</li>
+    <li>Medication adherence coaching &amp; reminders</li>
+    <li>Virtual health assistants &amp; mental-health chatbots</li>
+    <li>Clinical decision support for care teams</li>
+    <li>Population health analytics &amp; disease surveillance</li>
+  </ul>
+</footer>
+
+<script>
+const DATA = {
+  id:'root', label:'Chronic Conditions\n& AI', hint:'two main themes',
+  children:[
+    {
+      id:'cc', label:'Chronic Conditions', theme:'cc', hint:'long-lasting illness',
+      children:[
+        {
+          id:'cc-def', label:'What are they?', theme:'cc',
+          children:[
+            {id:'cc-def1', label:'Persist ≥ 1 year, need ongoing care'},
+            {id:'cc-def2', label:'Usually managed, not cured'},
+            {id:'cc-def3', label:'Often coexist (comorbidity)'},
+          ]
+        },
+        {
+          id:'cc-types', label:'Common conditions', theme:'cc',
+          children:[
+            {id:'cc-t1', label:'Cardiovascular: hypertension, heart disease, stroke'},
+            {id:'cc-t2', label:'Metabolic: diabetes (T1/T2), obesity'},
+            {id:'cc-t3', label:'Respiratory: asthma, COPD'},
+            {id:'cc-t4', label:'Musculoskeletal: arthritis, osteoporosis, back pain'},
+            {id:'cc-t5', label:'Neurological: Alzheimer’s, Parkinson’s, epilepsy, MS'},
+            {id:'cc-t6', label:'Mental health: depression, anxiety, bipolar'},
+            {id:'cc-t7', label:'Kidney & liver: CKD, fatty liver'},
+            {id:'cc-t8', label:'Autoimmune: RA, lupus, IBD, psoriasis'},
+          ]
+        },
+        {
+          id:'cc-risk', label:'Risk factors', theme:'cc',
+          children:[
+            {id:'cc-r1', label:'Tobacco, poor diet, inactivity, alcohol'},
+            {id:'cc-r2', label:'Aging population'},
+            {id:'cc-r3', label:'Genetics & family history'},
+            {id:'cc-r4', label:'Environmental exposure'},
+          ]
+        },
+        {
+          id:'cc-burden', label:'Burden & impact', theme:'cc',
+          children:[
+            {id:'cc-b1', label:'Leading cause of death & disability worldwide'},
+            {id:'cc-b2', label:'6 in 10 U.S. adults have ≥1; 4 in 10 have 2+'},
+            {id:'cc-b3', label:'Major driver of healthcare spending'},
+            {id:'cc-b4', label:'Reduced quality of life'},
+          ]
+        },
+        {
+          id:'cc-mgmt', label:'Management & care', theme:'cc',
+          children:[
+            {id:'cc-m1', label:'Medication adherence'},
+            {id:'cc-m2', label:'Lifestyle change: diet, exercise, sleep'},
+            {id:'cc-m3', label:'Regular monitoring & check-ups'},
+            {id:'cc-m4', label:'Multidisciplinary care teams'},
+            {id:'cc-m5', label:'Patient education & self-management'},
+          ]
+        },
+        {
+          id:'cc-ch', label:'Challenges', theme:'cc',
+          children:[
+            {id:'cc-c1', label:'Cost & access to care'},
+            {id:'cc-c2', label:'Fragmented care'},
+            {id:'cc-c3', label:'Adherence & follow-through'},
+            {id:'cc-c4', label:'Health inequities'},
+          ]
+        },
+      ]
+    },
+    {
+      id:'ai', label:'Artificial Intelligence', theme:'ai', hint:'AI',
+      children:[
+        {
+          id:'ai-def', label:'What is AI?', theme:'ai',
+          children:[
+            {id:'ai-d1', label:'Machines simulating human intelligence'},
+            {id:'ai-d2', label:'Learns from data, improves over time'},
+          ]
+        },
+        {
+          id:'ai-sub', label:'Core subfields', theme:'ai',
+          children:[
+            {id:'ai-s1', label:'Machine learning: supervised, unsupervised, RL'},
+            {id:'ai-s2', label:'Deep learning & neural networks'},
+            {id:'ai-s3', label:'NLP & LLMs (transformers, GPT)'},
+            {id:'ai-s4', label:'Computer vision'},
+            {id:'ai-s5', label:'Generative AI'},
+            {id:'ai-s6', label:'Robotics & automation'},
+          ]
+        },
+        {
+          id:'ai-tech', label:'Key technologies', theme:'ai',
+          children:[
+            {id:'ai-t1', label:'Large language models'},
+            {id:'ai-t2', label:'Predictive analytics'},
+            {id:'ai-t3', label:'Pattern recognition'},
+            {id:'ai-t4', label:'IoT & wearable sensors'},
+            {id:'ai-t5', label:'Cloud & edge computing'},
+          ]
+        },
+        {
+          id:'ai-health', label:'AI in healthcare', theme:'ai',
+          children:[
+            {id:'ai-h1', label:'Medical imaging & diagnostics'},
+            {id:'ai-h2', label:'Clinical decision support'},
+            {id:'ai-h3', label:'Drug discovery & development'},
+            {id:'ai-h4', label:'Personalized treatment plans'},
+            {id:'ai-h5', label:'Virtual assistants & chatbots'},
+            {id:'ai-h6', label:'Administrative automation'},
+          ]
+        },
+        {
+          id:'ai-data', label:'Data', theme:'ai',
+          children:[
+            {id:'ai-dt1', label:'Electronic health records (EHR)'},
+            {id:'ai-dt2', label:'Wearable & sensor data'},
+            {id:'ai-dt3', label:'Genomics & omics'},
+            {id:'ai-dt4', label:'Clinical trials & research'},
+            {id:'ai-dt5', label:'Synthetic / training data'},
+          ]
+        },
+        {
+          id:'ai-eth', label:'Challenges & ethics', theme:'ai',
+          children:[
+            {id:'ai-e1', label:'Bias & fairness'},
+            {id:'ai-e2', label:'Privacy & data security'},
+            {id:'ai-e3', label:'Explainability (black box)'},
+            {id:'ai-e4', label:'Regulation & compliance'},
+            {id:'ai-e5', label:'Trust & accountability'},
+          ]
+        },
+      ]
+    }
+  ]
+};
+
+// ---- state ----
+const collapsed = new Set();
+
+// ---- layout ----
+const DX0 = 300, DX1 = 210, SPACING = 92;
+DATA.x = 0; DATA.y = 0; DATA.level = 0;
+function place(node, dir){
+  const kids = node.children || [];
+  node.leaf = kids.length === 0;
+  if(!kids.length) return;
+  const dx = DX1;
+  const total = (kids.length - 1) * SPACING;
+  const start = node.y - total/2;
+  kids.forEach((k,i)=>{
+    k.level = node.level + 1;
+    k.x = node.x + dir*dx;
+    k.y = start + i*SPACING;
+    place(k, dir);
+  });
+}
+// two main themes: Chronic Conditions -> left, AI -> right
+DATA.children.forEach((b,i)=>{
+  const dir = i === 0 ? -1 : 1;
+  b.x = dir*DX0; b.y = 0; b.level = 1; b.dir = dir;
+  place(b, dir);
+});
+
+// ---- helpers ----
+function isHidden(node){
+  let n = node;
+  while(n.parent){ if(collapsed.has(n.parent.id)) return true; n = n.parent; }
+  return false;
+}
+// build parent links
+(function link(n,parent){ n.parent = parent; (n.children||[]).forEach(c=>link(c,n)); })(DATA, null);
+
+function flatten(node){ let r=[node]; (node.children||[]).forEach(c=>r=r.concat(flatten(c))); return r; }
+const all = flatten(DATA);
+
+// ---- render ----
+const canvas = document.getElementById('canvas');
+let svg;
+function render(){
+  // bounds
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  all.forEach(n=>{
+    if(isHidden(n)) return;
+    minX=Math.min(minX,n.x);maxX=Math.max(maxX,n.x);
+    minY=Math.min(minY,n.y);maxY=Math.max(maxY,n.y);
+  });
+  const PAD=80;
+  const W=maxX-minX+2*PAD, H=maxY-minY+2*PAD;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  const ox=PAD-minX, oy=PAD-minY;
+
+  canvas.innerHTML='';
+  svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('class','lines');
+  svg.setAttribute('width',W); svg.setAttribute('height',H);
+  svg.style.width=W+'px'; svg.style.height=H+'px';
+  canvas.appendChild(svg);
+
+  // connectors
+  all.forEach(n=>{
+    if(!n.parent || isHidden(n)) return;
+    const p=n.parent, x1=p.x+ox, y1=p.y+oy, x2=n.x+ox, y2=n.y+oy;
+    const mx=(x1+x2)/2;
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    const stroke = n.theme==='cc' ? 'var(--cc)' : (n.theme==='ai' ? 'var(--ai)' : '#cbd5e1');
+    path.style.stroke = stroke;
+    path.setAttribute('d',`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`);
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke',stroke);
+    path.setAttribute('stroke-width', n.level<=1 ? 2.5 : 1.5);
+    path.setAttribute('opacity', n.level<=1 ? 0.9 : 0.7);
+    svg.appendChild(path);
+  });
+
+  // nodes
+  all.forEach(n=>{
+    if(isHidden(n)) return;
+    const el=document.createElement('div');
+    el.className='nnode'+(n===DATA?' root':'')+(n.theme?' '+n.theme:'')+(n.leaf&&n!==DATA?' leaf':'');
+    el.style.left=(n.x+ox)+'px'; el.style.top=(n.y+oy)+'px';
+    const hasKids=!n.leaf;
+    const label=(n.label||'').replace(/\n/g,'<br>');
+    el.innerHTML = (n.theme?'<span class="dot"></span>':'') + label +
+      (hasKids?'<span class="hint">'+(collapsed.has(n.id)?'＋':'−')+' '+n.children.length+'</span>':'');
+    if(n===DATA){
+      el.classList.add('root');
+    }
+    el.onclick=()=>{ toggle(n); };
+    canvas.appendChild(el);
+  });
+
+  // center the root in the initial view (both themes stay visible)
+  const wrap=document.getElementById('wrap');
+  wrap.scrollLeft = Math.max(0, (DATA.x+ox) - wrap.clientWidth/2);
+  wrap.scrollTop  = Math.max(0, (DATA.y+oy) - wrap.clientHeight/2);
+}
+
+function toggle(n){
+  if(n.leaf) return;
+  if(collapsed.has(n.id)) collapsed.delete(n.id); else collapsed.add(n.id);
+  render();
+}
+function expandAll(){ collapsed.clear(); render(); }
+function collapseAll(){ all.forEach(n=>{ if(n.children&&n.children.length) collapsed.add(n.id); }); collapsed.delete('root'); render(); }
+
+render();
+</script>
+</body>
+</html>
