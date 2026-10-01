@@ -252,27 +252,60 @@ const collapsed = new Set();
 
 // ---- layout ----
 const DX0 = 300, DX1 = 210, SPACING = 92;
-DATA.x = 0; DATA.y = 0; DATA.level = 0;
-function place(node, dir){
-  const kids = node.children || [];
-  node.leaf = kids.length === 0;
-  if(!kids.length) return;
-  const dx = DX1;
-  const total = (kids.length - 1) * SPACING;
-  const start = node.y - total/2;
-  kids.forEach((k,i)=>{
-    k.level = node.level + 1;
-    k.x = node.x + dir*dx;
-    k.y = start + i*SPACING;
-    place(k, dir);
+function isMobile(){ return window.innerWidth < 700; }
+function computeLayout(){
+  DATA.x = 0; DATA.y = 0; DATA.level = 0;
+  if(isMobile()){ layoutMobile(); return; }
+  function place(node, dir){
+    const kids = node.children || [];
+    node.leaf = kids.length === 0;
+    if(!kids.length) return;
+    const dx = DX1;
+    const total = (kids.length - 1) * SPACING;
+    const start = node.y - total/2;
+    kids.forEach((k,i)=>{
+      k.level = node.level + 1;
+      k.x = node.x + dir*dx;
+      k.y = start + i*SPACING;
+      place(k, dir);
+    });
+  }
+  // two main themes: Chronic Conditions -> left, AI -> right
+  DATA.children.forEach((b,i)=>{
+    const dir = i === 0 ? -1 : 1;
+    b.x = dir*DX0; b.y = 0; b.level = 1; b.dir = dir;
+    place(b, dir);
   });
 }
-// two main themes: Chronic Conditions -> left, AI -> right
-DATA.children.forEach((b,i)=>{
-  const dir = i === 0 ? -1 : 1;
-  b.x = dir*DX0; b.y = 0; b.level = 1; b.dir = dir;
-  place(b, dir);
-});
+// mobile: top-down tree that fits the screen width (no horizontal scroll)
+function layoutMobile(){
+  const vw = Math.min(window.innerWidth, 700);
+  const branchW = vw/2;
+  const LW = 150, LROW = 52;
+  DATA.x = vw/2; DATA.y = 28;
+  DATA.children.forEach((b,i)=>{
+    const colCX = vw/4 + i*(vw/2);
+    b.x = colCX; b.y = 140; b.level = 1; b.dir = i===0 ? -1 : 1;
+    const cats = b.children || [];
+    b.leaf = cats.length === 0;
+    let y = b.y + 96;
+    cats.forEach(cat=>{
+      cat.level = 2;
+      cat.x = colCX; cat.y = y;
+      const leaves = cat.children || [];
+      cat.leaf = leaves.length === 0;
+      const lpr = Math.max(1, Math.floor((branchW - 20) / LW));
+      const lw = (branchW - 20) / lpr;
+      leaves.forEach((lf,j)=>{
+        lf.level = 3; lf.leaf = true;
+        const col = j % lpr, row = Math.floor(j / lpr);
+        lf.x = colCX - (branchW/2 - 10) + col*lw + lw/2;
+        lf.y = y + 62 + row*LROW;
+      });
+      y += 62 + Math.ceil(leaves.length / lpr) * LROW;
+    });
+  });
+}
 
 // ---- helpers ----
 function isHidden(node){
@@ -297,7 +330,7 @@ function render(){
     minX=Math.min(minX,n.x);maxX=Math.max(maxX,n.x);
     minY=Math.min(minY,n.y);maxY=Math.max(maxY,n.y);
   });
-  const PAD=80;
+  const PAD = isMobile() ? 6 : 80;
   const W=maxX-minX+2*PAD, H=maxY-minY+2*PAD;
   canvas.style.width=W+'px'; canvas.style.height=H+'px';
   const ox=PAD-minX, oy=PAD-minY;
@@ -342,10 +375,13 @@ function render(){
     canvas.appendChild(el);
   });
 
-  // center the root in the initial view (both themes stay visible)
   const wrap=document.getElementById('wrap');
-  wrap.scrollLeft = Math.max(0, (DATA.x+ox) - wrap.clientWidth/2);
-  wrap.scrollTop  = Math.max(0, (DATA.y+oy) - wrap.clientHeight/2);
+  if(isMobile()){
+    wrap.scrollLeft = 0; wrap.scrollTop = 0;
+  } else {
+    wrap.scrollLeft = Math.max(0, (DATA.x+ox) - wrap.clientWidth/2);
+    wrap.scrollTop  = Math.max(0, (DATA.y+oy) - wrap.clientHeight/2);
+  }
 }
 
 function toggle(n){
@@ -356,6 +392,11 @@ function toggle(n){
 function expandAll(){ collapsed.clear(); render(); }
 function collapseAll(){ all.forEach(n=>{ if(n.children&&n.children.length) collapsed.add(n.id); }); collapsed.delete('root'); render(); }
 
+window.addEventListener('resize', ()=>{
+  clearTimeout(window._rz);
+  window._rz = setTimeout(()=>{ computeLayout(); render(); }, 150);
+});
+computeLayout();
 render();
 </script>
 </body>
